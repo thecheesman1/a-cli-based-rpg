@@ -3,53 +3,52 @@ import time
 from openai import OpenAI
 
 # --- CONFIGURATION ---
-MODEL_NAME = "gemma:2b"
-GAME_COMMAND = "python main.py"
-AI_SPEED = 0.5
+MODEL_NAME = "gemma:2b"  # The Ollama model you want to use
+GAME_COMMAND = "python main.py" # The command to start the RPG game
+AI_SPEED = 0.5 # Seconds to wait between AI actions, for watchability
 
 class AIPlayer:
-    """The AI's 'brain'. It now thinks before it acts."""
+    """The AI's 'brain'. It now has a short-term memory."""
 
     def __init__(self, model_name):
+        # Point the OpenAI client to your LM Studio server
         self.client = OpenAI(
-            base_url='http://192.168.1.117:1234/v1', # Your LM Studio IP
-            api_key='lm-studio',
+            base_url='http://192.168.1.117:1234/v1',
+            api_key='lm-studio', # can be anything
         )
-        self.model = "local-model" # Placeholder for LM Studio
+        # We don't need to specify the model name here, as it's determined
+        # by the model you've loaded in LM Studio.
+        self.model = "local-model" # A placeholder name
         
-        # --- NEW: A more advanced system prompt that demands a thought process ---
+        # The system prompt is now more direct, as the history will provide context
         self.system_prompt = """
-You are an AI playing a text-based RPG. Your goal is to survive.
-You must first explain your reasoning for your next move in a 'Thought' line.
-Then, on a new line, you must state the single command to execute.
-
-Analyze the game state and your health.
-- If your health is low, your thought should be about resting to recover.
-- If you are in an unwinnable fight, your thought should be about running away.
-- If you are confident, your thought should be about attacking or exploring.
+You are a strategic AI playing a text-based RPG. Your goal is to survive as long as possible.
+Analyze the recent history and the current game state to make the most logical move.
+First, explain your reasoning in a 'Thought' line.
+Then, on a new line, state the single command to execute.
 
 Your response MUST be in this exact two-line format:
 Thought: [Your reasoning here]
 [command]
 
-The command on the second line MUST be one of the following: 'explore', 'rest', 'attack', 'run', 'quit'
+The command MUST be one of the following: 'explore', 'rest', 'attack', 'run', 'quit'
 """
 
-    def get_action(self, game_output: str) -> dict:
-        """Gets a thought and action from the LLM."""
+    def get_action(self, history: list) -> dict: # Takes a list of messages
+        """Gets a thought and action from the LLM based on conversation history."""
         try:
+            # The history is now the main context
+            messages = [{"role": "system", "content": self.system_prompt}] + history
+            
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": game_output}
-                ],
+                messages=messages,
                 temperature=0.7,
                 max_tokens=100 # More tokens to allow for a thought
             )
             raw_response = response.choices[0].message.content.strip()
             
-            # --- NEW: Parse the AI's two-line response ---
+            # Parse the AI's two-line response
             thought = "No thought provided."
             action = "explore" # Default action
             
@@ -69,65 +68,107 @@ The command on the second line MUST be one of the following: 'explore', 'rest', 
             print(f"--- AI ERROR: Could not parse thought/action. Error: {e} ---")
             return {"thought": "I seem to be confused.", "action": "rest"}
 
-
 class GameRunner:
-    # (This class is unchanged, it works perfectly)
+    """Manages the game subprocess and communication."""
+
     def __init__(self, command):
         self.process = subprocess.Popen(
-            command, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, text=True, bufsize=1
+            command,
+            shell=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1 # Line-buffered
         )
 
     def read_output(self) -> str:
+        """Reads all output from the game one character at a time until it waits for input."""
         output_chars = []
         current_line = ""
         while self.is_running():
+            # Read one character at a time
             char = self.process.stdout.read(1)
-            if not char: break
+            if not char:
+                # End of stream, process has likely closed
+                break
+            
+            # Print the character to your console so you can watch the game live
             print(char, end='', flush=True)
+            
+            # Store the character for the AI
             output_chars.append(char)
+            
+            # Build up the current line to check for our prompt markers
             if char == '\n':
                 current_line = ""
             else:
                 current_line += char
+
+            # If the current line ends with a prompt, we know the game is waiting for us.
             if current_line.strip().endswith(('):', 'name:', '>')):
                 break
+                
         return "".join(output_chars)
 
     def send_input(self, action: str):
+        """Sends a command to the game."""
         self.process.stdin.write(action + '\n')
         self.process.stdin.flush()
 
     def is_running(self) -> bool:
+        """Checks if the game process is still active."""
         return self.process.poll() is None
 
-
 if __name__ == "__main__":
-    print("--- AI GAMER AGENT (THINKING EDITION) INITIALIZING ---")
+    print("--- AI GAMER AGENT (MEMORY EDITION) INITIALIZING ---")
+    print(f"--- Model: {MODEL_NAME} ---")
+    print("--- Make sure your LM Studio server is running! ---")
     
     ai_player = AIPlayer(MODEL_NAME)
     game = GameRunner(GAME_COMMAND)
+    
+    # Initialize a conversation history
+    conversation_history = []
     
     print("\n--- GAME STARTING ---\n")
     time.sleep(2)
 
     while game.is_running():
+        # 1. Read the state of the game
         game_state = game.read_output()
-        if not game_state: break
+        if not game_state: # If there's no output, the game has probably ended
+            break
+        
+        # 2. Add the game's output to the history
+        conversation_history.append({"role": "user", "content": game_state})
 
-        # --- MODIFIED: Get the AI's decision (both thought and action) ---
-        ai_decision = ai_player.get_action(game_state)
+        # 3. Keep the history to a manageable size (e.g., last 5 exchanges)
+        # An exchange is 2 messages (user + assistant), so we keep 10 messages total.
+        if len(conversation_history) > 10:
+            conversation_history = conversation_history[-10:]
+
+        # 4. Get the AI's next move based on the history
+        ai_decision = ai_player.get_action(conversation_history)
         thought = ai_decision['thought']
         action = ai_decision['action']
         
-        # --- MODIFIED: Display both the thought and the action ---
+        # 5. Display both the thought and the action
         print(f"\n🤔 AI THOUGHT: {thought}")
         print(f">>> AI chooses: {action}\n")
 
+        # 6. Add the AI's full response to the history for self-reflection
+        ai_full_response = f"Thought: {thought}\n{action}"
+        conversation_history.append({"role": "assistant", "content": ai_full_response})
+        
+        # 7. Send the chosen action to the game
         game.send_input(action)
+
+        # 8. Wait a moment so we can watch
         time.sleep(AI_SPEED)
 
     print("\n--- GAME OVER ---")
+    # Capture any final error messages
     stdout, stderr = game.process.communicate()
     if stdout: print("Final STDOUT:\n", stdout)
     if stderr: print("Final STDERR:\n", stderr)
