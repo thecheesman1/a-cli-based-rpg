@@ -9,6 +9,12 @@ class Player:
         self.attack = 10
         self.defense = 5
         self.inventory = []
+    
+    def rest(self):
+        """Rest to regain health"""
+        heal_amount = random.randint(10, 25)
+        self.health = min(100, self.health + heal_amount)  # Cap health at 100
+        return heal_amount
 
 class Enemy:
     def __init__(self, name, health, attack, defense=0):
@@ -76,7 +82,7 @@ def main():
     while player.health > 0:
         display_stats(player)
         
-        action = input("\nWhat would you like to do? (explore/quit): ").lower()
+        action = input("\nWhat would you like to do? (explore/rest/quit): ").lower()
         
         if action == "explore":
             enemy = create_enemy()
@@ -85,12 +91,16 @@ def main():
             if result is False:
                 break
         
+        elif action == "rest":
+            heal_amount = player.rest()
+            print(f"\nYou rest and regain {heal_amount} health. Your health is now {player.health}.")
+        
         elif action == "quit":
             print("\nThanks for playing!")
             break
         
         else:
-            print("\nInvalid action. Please choose 'explore' or 'quit'.")
+            print("\nInvalid action. Please choose 'explore', 'rest' or 'quit'.")
     
     if player.health <= 0:
         print("\nGame Over!")
