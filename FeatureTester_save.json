@@ -1,1 +1,1 @@
-{"name": "FeatureTester", "game_mode": "easy", "health": 100, "attack": 3.0, "defense": 5, "inventory": ["Health Potion", "Strength Potion"]}
+{"name": "FeatureTester", "game_mode": "normal", "health": 100, "attack": 8.0, "defense": 5, "inventory": ["Stone", "Gold Ore", "Health Potion"], "level": 1, "experience": 0}

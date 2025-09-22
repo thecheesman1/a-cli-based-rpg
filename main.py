@@ -5,9 +5,11 @@ import json
 import os
 
 class Player:
-    def __init__(self, name, game_mode="normal", health=100, attack=10, defense=5):
+    def __init__(self, name, game_mode="normal", health=100, attack=10, defense=5, level=1, experience=0):
         self.name = name
         self.game_mode = game_mode
+        self.level = level
+        self.experience = experience
         
         # Set stats based on game mode
         if game_mode == "easy":
@@ -46,7 +48,9 @@ class Player:
             "health": self.health,
             "attack": self.attack,
             "defense": self.defense,
-            "inventory": self.inventory
+            "inventory": self.inventory,
+            "level": self.level,
+            "experience": self.experience
         }
         
         filename = f"{self.name}_save.json"
@@ -72,22 +76,81 @@ class Player:
             elif item == "Steel Sword":
                 self.attack += 15
                 print(f"\nYou equipped a Steel Sword! Attack increased by 15.")
+            elif item == "Diamond Sword":
+                self.attack += 25
+                print(f"\nYou equipped a Diamond Sword! Attack increased by 25.")
+            elif item == "Godly Sword":
+                self.attack += 50
+                print(f"\nYou equipped a Godly Sword! Attack increased by 50.")
+            elif item == "Wooden Axe":
+                self.attack += 8
+                print(f"\nYou equipped a Wooden Axe! Attack increased by 8.")
+            elif item == "Iron Axe":
+                self.attack += 12
+                print(f"\nYou equipped an Iron Axe! Attack increased by 12.")
             elif item == "Shield":
                 self.defense += 5
                 print(f"\nYou equipped a Shield! Defense increased by 5.")
         else:
             print(f"\nYou don't have a {item} in your inventory!")
+    
+    def mine(self):
+        """Mining feature"""
+        mining_results = ["Stone", "Iron Ore", "Gold Ore", "Diamond", "Nothing"]
+        weights = [0.4, 0.25, 0.2, 0.1, 0.05]  # Probability weights
+        
+        result = random.choices(mining_results, weights=weights)[0]
+        
+        if result == "Nothing":
+            print("\nYou didn't find anything while mining.")
+        else:
+            self.inventory.append(result)
+            print(f"\nYou mined and found: {result}!")
+            
+            # Special case: if you find a diamond, you might be able to craft a diamond sword
+            if result == "Diamond" and "Wooden Axe" in self.inventory:
+                craft_choice = input("Would you like to craft a Diamond Sword? (y/n): ").lower()
+                if craft_choice == "y":
+                    # Remove the diamond and wooden axe
+                    self.inventory.remove("Diamond")
+                    self.inventory.remove("Wooden Axe")
+                    self.inventory.append("Diamond Sword")
+                    print("You crafted a Diamond Sword!")
+    
+    def gain_experience(self, exp):
+        """Gain experience and level up if enough experience is gained"""
+        self.experience += exp
+        exp_needed = self.level * 100  # Experience needed to level up
+        
+        if self.experience >= exp_needed:
+            self.level_up()
+    
+    def level_up(self):
+        """Level up the player, increasing stats"""
+        self.level += 1
+        self.experience = 0  # Reset experience after level up
+        
+        # Increase stats
+        self.attack += 5
+        self.defense += 3
+        self.health += 20
+        
+        print(f"\nCongratulations! You've reached level {self.level}!")
+        print("Your stats have increased!")
 
 class Enemy:
-    def __init__(self, name, health, attack, defense=0):
+    def __init__(self, name, health, attack, defense=0, level=1):
         self.name = name
         self.health = health
         self.attack = attack
         self.defense = defense
+        self.level = level
 
 
 def display_stats(player):
     print(f"\n{player.name}'s Stats:")
+    print(f"Level: {player.level}")
+    print(f"Experience: {player.experience}")
     print(f"Health: {player.health}")
     print(f"Attack: {player.attack}")
     print(f"Defense: {player.defense}")
@@ -95,8 +158,8 @@ def display_stats(player):
     print(f"Game Mode: {player.game_mode.capitalize()}")
 
 
-def create_enemy(game_mode="normal"):
-    # Adjust enemy difficulty based on game mode
+def create_enemy(game_mode="normal", player_level=1):
+    # Adjust enemy difficulty based on game mode and player level
     if game_mode == "easy":
         enemies = [
             ("Weak Goblin", 20, 6, 1),
@@ -116,8 +179,15 @@ def create_enemy(game_mode="normal"):
             ("Dragon", 100, 20, 10)
         ]
     
+    # Select a random enemy
     enemy_data = random.choice(enemies)
-    return Enemy(enemy_data[0], enemy_data[1], enemy_data[2], enemy_data[3])
+    
+    # Scale enemy stats based on player level
+    scaled_health = enemy_data[1] + (player_level - 1) * 10
+    scaled_attack = enemy_data[2] + (player_level - 1) * 3
+    scaled_defense = enemy_data[3] + (player_level - 1) * 1
+    
+    return Enemy(enemy_data[0], scaled_health, scaled_attack, scaled_defense, player_level)
 
 
 def battle(player, enemy):
@@ -136,8 +206,14 @@ def battle(player, enemy):
             
             if enemy.health <= 0:
                 print(f"\nYou defeated the {enemy.name}!")
+                
+                # Gain experience based on enemy level
+                exp_gained = enemy.level * 50
+                player.gain_experience(exp_gained)
+                print(f"You gained {exp_gained} experience points!")
+                
                 # Add a random item to inventory upon victory
-                items = ["Health Potion", "Strength Potion", "Iron Sword", "Steel Sword", "Shield"]
+                items = ["Health Potion", "Strength Potion", "Iron Sword", "Steel Sword", "Diamond Sword", "Godly Sword", "Wooden Axe", "Iron Axe", "Shield"]
                 if random.random() > 0.5:  # 50% chance to get an item
                     item = random.choice(items)
                     player.inventory.append(item)
@@ -185,6 +261,10 @@ def shop(player):
         ("Strength Potion", 50),
         ("Iron Sword", 100),
         ("Steel Sword", 200),
+        ("Diamond Sword", 500),
+        ("Godly Sword", 1000),
+        ("Wooden Axe", 30),
+        ("Iron Axe", 150),
         ("Shield", 150)
     ]
     
@@ -254,7 +334,9 @@ def load_game():
             player_data["game_mode"],
             player_data["health"],
             player_data["attack"],
-            player_data["defense"]
+            player_data["defense"],
+            player_data.get("level", 1),  # Default to level 1 if not present
+            player_data.get("experience", 0)  # Default to 0 experience if not present
         )
         player.inventory = player_data["inventory"]
         
@@ -284,42 +366,47 @@ def main():
         name = input("\nEnter your character's name: ").strip()
         player = Player(name, game_mode)
     
-    print(f"\nWelcome, {player.name}! Your adventure begins...")
+    print(f"\nWelcome, {player.name}! You are playing in {player.game_mode.capitalize()} mode.")
     
+    # Main game loop
     while player.health > 0:
-        display_stats(player)
+        print("\nWhat would you like to do?")
+        print("1. Explore")
+        print("2. Rest")
+        print("3. View Stats")
+        print("4. Shop")
+        print("5. Mine")
+        print("6. Save Game")
+        print("7. Quit")
         
-        action = input("\nWhat would you like to do? (explore/rest/shop/save/quit): ").lower().strip()
+        choice = input("> ").strip()
         
-        if action == "explore":
-            enemy = create_enemy(player.game_mode)
+        if choice == "1":
+            enemy = create_enemy(player.game_mode, player.level)
             result = battle(player, enemy)
-            
             if result is False:  # Player was defeated
-                print("\nGame Over!")
                 break
-        
-        elif action == "rest":
+        elif choice == "2":
             heal_amount = player.rest()
             if heal_amount > 0:
-                print(f"\nYou rested and recovered {heal_amount} HP.")
-        
-        elif action == "shop":
+                print(f"\nYou rested and recovered {heal_amount} HP!")
+        elif choice == "3":
+            display_stats(player)
+        elif choice == "4":
             shop(player)
-        
-        elif action == "save":
+        elif choice == "5":
+            player.mine()
+        elif choice == "6":
             player.save()
-        
-        elif action == "quit":
+        elif choice == "7":
             print("\nThanks for playing!")
             break
-        
         else:
-            print("\nInvalid action. Please choose from the available options.")
+            print("\nInvalid choice. Please enter a number between 1 and 7.")
     
     if player.health <= 0:
-        print("\nYou have died. Game Over!")
-
+        print("\nGame Over! Your character has died.")
+        print("Thanks for playing!")
 
 if __name__ == "__main__":
     main()
