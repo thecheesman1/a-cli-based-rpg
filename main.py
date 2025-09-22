@@ -3,13 +3,16 @@
 import random
 import json
 import os
+import time
+import threading
 
 class Player:
-    def __init__(self, name, game_mode="normal", health=100, attack=10, defense=5, level=1, experience=0):
+    def __init__(self, name, game_mode="normal", health=100, attack=10, defense=5, level=1, experience=0, coins=0):
         self.name = name
         self.game_mode = game_mode
         self.level = level
         self.experience = experience
+        self.coins = coins
         
         # Set stats based on game mode
         if game_mode == "easy":
@@ -26,6 +29,8 @@ class Player:
             self.defense = defense if defense is not None else 5
             
         self.inventory = []
+        self.auto_mining = False
+        self.mining_thread = None
     
     def rest(self):
         """Rest to regain health"""
@@ -50,7 +55,8 @@ class Player:
             "defense": self.defense,
             "inventory": self.inventory,
             "level": self.level,
-            "experience": self.experience
+            "experience": self.experience,
+            "coins": self.coins
         }
         
         filename = f"{self.name}_save.json"
@@ -95,7 +101,7 @@ class Player:
             print(f"\nYou don't have a {item} in your inventory!")
     
     def mine(self):
-        """Mining feature"""
+        """Manual mining feature"""
         mining_results = ["Stone", "Iron Ore", "Gold Ore", "Diamond", "Nothing"]
         weights = [0.4, 0.25, 0.2, 0.1, 0.05]  # Probability weights
         
@@ -116,6 +122,35 @@ class Player:
                     self.inventory.remove("Wooden Axe")
                     self.inventory.append("Diamond Sword")
                     print("You crafted a Diamond Sword!")
+    
+    def auto_mine(self):
+        """Auto mining feature that generates coins"""
+        print("\nAuto mining started. You will gain 10 coins per minute.")
+        print("Type 'stop mining' at any time to stop auto mining.")
+        
+        while self.auto_mining:
+            time.sleep(60)  # Wait for 1 minute
+            if self.auto_mining:  # Check again in case it was stopped during sleep
+                self.coins += 10
+                print(f"\n[Auto Mining] You've gained 10 coins! Total coins: {self.coins}")
+    
+    def start_auto_mining(self):
+        """Start the auto mining thread"""
+        if not self.auto_mining:
+            self.auto_mining = True
+            self.mining_thread = threading.Thread(target=self.auto_mine, daemon=True)
+            self.mining_thread.start()
+            print("\nAuto mining started successfully!")
+        else:
+            print("\nAuto mining is already running!")
+    
+    def stop_auto_mining(self):
+        """Stop the auto mining thread"""
+        if self.auto_mining:
+            self.auto_mining = False
+            print("\nAuto mining stopped.")
+        else:
+            print("\nAuto mining is not currently running!")
     
     def gain_experience(self, exp):
         """Gain experience and level up if enough experience is gained"""
@@ -138,6 +173,7 @@ class Player:
         print(f"\nCongratulations! You've reached level {self.level}!")
         print("Your stats have increased!")
 
+
 class Enemy:
     def __init__(self, name, health, attack, defense=0, level=1):
         self.name = name
@@ -154,8 +190,13 @@ def display_stats(player):
     print(f"Health: {player.health}")
     print(f"Attack: {player.attack}")
     print(f"Defense: {player.defense}")
+    print(f"Coins: {player.coins}")
     print(f"Inventory: {', '.join(player.inventory) if player.inventory else 'Empty'}")
     print(f"Game Mode: {player.game_mode.capitalize()}")
+    if player.auto_mining:
+        print("Auto Mining: Active")
+    else:
+        print("Auto Mining: Inactive")
 
 
 def create_enemy(game_mode="normal", player_level=1):
@@ -268,7 +309,8 @@ def shop(player):
         ("Shield", 150)
     ]
     
-    print("\nWelcome to the shop! Here's what's for sale:")
+    print(f"\nWelcome to the shop! You have {player.coins} coins.")
+    print("Here's what's for sale:")
     
     # Display items and their prices
     for i, (item, price) in enumerate(items_for_sale):
@@ -284,15 +326,14 @@ def shop(player):
         if 1 <= choice <= len(items_for_sale):
             item, price = items_for_sale[choice-1]
             
-            # Check if player has enough coins (we'll use a simple coin system)
-            # For now, we'll just check if they can afford it based on their attack power
-            # This is a simplified system - in a real game, you'd have a separate currency
-            if player.attack >= price / 10:  # Simplified affordability check
+            # Check if player has enough coins
+            if player.coins >= price:
                 player.inventory.append(item)
-                player.attack -= price / 10  # Deduct cost
-                print(f"\nYou bought a {item}!")
+                player.coins -= price
+                print(f"\nYou bought a {item} for {price} coins!")
+                print(f"Remaining coins: {player.coins}")
             else:
-                print("\nYou can't afford that item!")
+                print("\nYou don't have enough coins!")
         else:
             print("\nInvalid choice!")
     
@@ -336,7 +377,8 @@ def load_game():
             player_data["attack"],
             player_data["defense"],
             player_data.get("level", 1),  # Default to level 1 if not present
-            player_data.get("experience", 0)  # Default to 0 experience if not present
+            player_data.get("experience", 0),  # Default to 0 experience if not present
+            player_data.get("coins", 0)  # Default to 0 coins if not present
         )
         player.inventory = player_data["inventory"]
         
@@ -376,8 +418,10 @@ def main():
         print("3. View Stats")
         print("4. Shop")
         print("5. Mine")
-        print("6. Save Game")
-        print("7. Quit")
+        print("6. Start Auto Mining")
+        print("7. Stop Auto Mining")
+        print("8. Save Game")
+        print("9. Quit")
         
         choice = input("> ").strip()
         
@@ -397,12 +441,18 @@ def main():
         elif choice == "5":
             player.mine()
         elif choice == "6":
-            player.save()
+            player.start_auto_mining()
         elif choice == "7":
+            player.stop_auto_mining()
+        elif choice == "8":
+            player.save()
+        elif choice == "9":
+            if player.auto_mining:
+                player.stop_auto_mining()
             print("\nThanks for playing!")
             break
         else:
-            print("\nInvalid choice. Please enter a number between 1 and 7.")
+            print("\nInvalid choice. Please enter a number between 1 and 9.")
     
     if player.health <= 0:
         print("\nGame Over! Your character has died.")
