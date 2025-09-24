@@ -67,38 +67,78 @@ class Player:
     
     def use_item(self, item):
         """Use an item from the inventory"""
-        if item in self.inventory:
-            self.inventory.remove(item)
-            if item == "Health Potion":
-                heal_amount = 30
-                self.health = min(100 if self.game_mode == "normal" else 150 if self.game_mode == "easy" else 75, self.health + heal_amount)
-                print(f"\nYou used a Health Potion and restored {heal_amount} HP!")
-            elif item == "Strength Potion":
-                self.attack += 5
-                print(f"\nYou used a Strength Potion! Attack increased by 5.")
-            elif item == "Iron Sword":
-                self.attack += 10
-                print(f"\nYou equipped an Iron Sword! Attack increased by 10.")
-            elif item == "Steel Sword":
-                self.attack += 15
-                print(f"\nYou equipped a Steel Sword! Attack increased by 15.")
-            elif item == "Diamond Sword":
-                self.attack += 25
-                print(f"\nYou equipped a Diamond Sword! Attack increased by 25.")
-            elif item == "Godly Sword":
-                self.attack += 50
-                print(f"\nYou equipped a Godly Sword! Attack increased by 50.")
-            elif item == "Wooden Axe":
-                self.attack += 8
-                print(f"\nYou equipped a Wooden Axe! Attack increased by 8.")
-            elif item == "Iron Axe":
-                self.attack += 12
-                print(f"\nYou equipped an Iron Axe! Attack increased by 12.")
-            elif item == "Shield":
-                self.defense += 5
-                print(f"\nYou equipped a Shield! Defense increased by 5.")
-        else:
+        if item not in self.inventory:
             print(f"\nYou don't have a {item} in your inventory!")
+            return
+        
+        self.inventory.remove(item)
+        
+        # Define item effects in a dictionary for easier maintenance and extension
+        item_effects = {
+            "Health Potion": {
+                "type": "heal",
+                "amount": 30
+            },
+            "Strength Potion": {
+                "type": "attack_boost",
+                "amount": 5
+            },
+            "Iron Sword": {
+                "type": "attack_boost",
+                "amount": 10
+            },
+            "Steel Sword": {
+                "type": "attack_boost",
+                "amount": 15
+            },
+            "Diamond Sword": {
+                "type": "attack_boost",
+                "amount": 25
+            },
+            "Godly Sword": {
+                "type": "attack_boost",
+                "amount": 50
+            },
+            "Wooden Axe": {
+                "type": "attack_boost",
+                "amount": 8
+            },
+            "Iron Axe": {
+                "type": "attack_boost",
+                "amount": 12
+            },
+            "Shield": {
+                "type": "defense_boost",
+                "amount": 5
+            }
+        }
+        
+        # Get the effect for the item
+        effect = item_effects.get(item)
+        
+        if effect:
+            if effect["type"] == "heal":
+                # Handle health restoration with game mode caps
+                if self.game_mode == "easy":
+                    max_health = 150
+                elif self.game_mode == "hardcore":
+                    max_health = 75
+                else:  # normal mode
+                    max_health = 100
+                
+                heal_amount = effect["amount"]
+                self.health = min(max_health, self.health + heal_amount)
+                print(f"\nYou used a {item} and restored {heal_amount} HP!")
+            elif effect["type"] == "attack_boost":
+                boost_amount = effect["amount"]
+                self.attack += boost_amount
+                print(f"\nYou used a {item}! Attack increased by {boost_amount}.")
+            elif effect["type"] == "defense_boost":
+                boost_amount = effect["amount"]
+                self.defense += boost_amount
+                print(f"\nYou used a {item}! Defense increased by {boost_amount}.")
+        else:
+            print(f"\n{item} has no defined effect!")
     
     def mine(self):
         """Manual mining feature"""
@@ -296,7 +336,7 @@ def battle(player, enemy):
 
 
 def shop(player):
-    """Visit the shop to buy items"""
+    """Visit the shop to buy or sell items"""
     items_for_sale = [
         ("Health Potion", 20),
         ("Strength Potion", 50),
@@ -309,33 +349,72 @@ def shop(player):
         ("Shield", 150)
     ]
     
+    # Define sell prices for resources
+    sell_prices = {
+        "Stone": 2,
+        "Iron Ore": 5,
+        "Gold Ore": 10,
+        "Diamond": 50
+    }
+    
     print(f"\nWelcome to the shop! You have {player.coins} coins.")
-    print("Here's what's for sale:")
+    print("1. Buy items")
+    print("2. Sell resources")
     
-    # Display items and their prices
-    for i, (item, price) in enumerate(items_for_sale):
-        print(f"{i+1}. {item} - {price} coins")
-    
-    # Get player's choice
     try:
-        choice = int(input("\nWhat would you like to buy? (Enter number, 0 to exit): "))
+        action_choice = int(input("\nWhat would you like to do? (Enter 1 to buy, 2 to sell, 0 to exit): "))
         
-        if choice == 0:
+        if action_choice == 0:
             return
         
-        if 1 <= choice <= len(items_for_sale):
-            item, price = items_for_sale[choice-1]
+        if action_choice == 1:
+            # Display items and their prices
+            for i, (item, price) in enumerate(items_for_sale):
+                print(f"{i+1}. {item} - {price} coins")
             
-            # Check if player has enough coins
-            if player.coins >= price:
-                player.inventory.append(item)
-                player.coins -= price
-                print(f"\nYou bought a {item} for {price} coins!")
-                print(f"Remaining coins: {player.coins}")
+            # Get player's choice
+            choice = int(input("\nWhat would you like to buy? (Enter number): "))
+            
+            if 1 <= choice <= len(items_for_sale):
+                item, price = items_for_sale[choice-1]
+                
+                # Check if player has enough coins
+                if player.coins >= price:
+                    player.inventory.append(item)
+                    player.coins -= price
+                    print(f"\nYou bought a {item} for {price} coins!")
+                    print(f"Remaining coins: {player.coins}")
+                else:
+                    print("\nYou don't have enough coins!")
             else:
-                print("\nYou don't have enough coins!")
+                print("\nInvalid choice!")
+        
+        elif action_choice == 2:
+            # Check if player has any resources to sell
+            resources_to_sell = [item for item in player.inventory if item in sell_prices]
+            
+            if not resources_to_sell:
+                print("\nYou don't have any sellable resources in your inventory!")
+                return
+            
+            print("\nYour sellable resources:")
+            for i, resource in enumerate(resources_to_sell):
+                print(f"{i+1}. {resource} - {sell_prices[resource]} coins")
+            
+            # Get player's choice
+            choice = int(input("\nWhat would you like to sell? (Enter number): "))
+            
+            if 1 <= choice <= len(resources_to_sell):
+                resource = resources_to_sell[choice-1]
+                player.inventory.remove(resource)
+                player.coins += sell_prices[resource]
+                print(f"\nYou sold a {resource} for {sell_prices[resource]} coins!")
+                print(f"Total coins: {player.coins}")
+            else:
+                print("\nInvalid choice!")
+        
         else:
-            print("\nInvalid choice!")
+            print("\nInvalid action choice!")
     
     except ValueError:
         print("\nInvalid input!")
