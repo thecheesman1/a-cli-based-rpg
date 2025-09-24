@@ -2,6 +2,21 @@
 
 Welcome to the CLI-Based RPG Game! This is a simple text-based adventure game that runs in your terminal.
 
+```
+  _______  _        _______  _______  _______  _______  _______ 
+ (  ____ \( \      (  ____ \(  ___  )(  ____ )(  ____ \(  ____ )
+ | (    \/| (      | (    \/| (   ) || (    )|| (    \/| (    )|
+ | |      | |      | |      | |   | || (____)|| (__    | (____)|
+ | |      | |      | |      | |   | ||     __)|  __)   |     __)
+ | |      | |      | |      | |   | || (\ (   | (      | (\ (   
+ | (____/\| (____/\| (____/\| (___) || ) \ \__| (____/\| ) \ \__
+ (_______/(_______/(_______/(_______)|/   \__/_______/|/   \__/                                                                   
+```
+
+Embark on an adventure where every command could be your last. Or not. Depending on your game mode.
+
+
+
 ## Features
 
 - Character creation with customizable names
@@ -18,10 +33,10 @@ Welcome to the CLI-Based RPG Game! This is a simple text-based adventure game th
 
 1. Run the game with `python main.py`
 2. Choose whether to load a saved game or create a new character
-3. Select your game mode:
-   - Normal: Balanced difficulty
-   - Easy: More health, stronger attacks, weaker enemies, better healing
-   - Hardcore: Less health, weaker attacks, stronger enemies, no resting
+3. Select your game mode by entering the corresponding number:
+   - 1. Normal: Balanced difficulty
+   - 2. Easy: More health, stronger attacks, weaker enemies, better healing
+   - 3. Hardcore: Less health, weaker attacks, stronger enemies, no resting
 4. Enter your character's name when prompted
 5. Choose actions from the menu:
    - `explore`: Encounter random enemies
