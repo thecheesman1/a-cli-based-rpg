@@ -67,38 +67,78 @@ class Player:
     
     def use_item(self, item):
         """Use an item from the inventory"""
-        if item in self.inventory:
-            self.inventory.remove(item)
-            if item == "Health Potion":
-                heal_amount = 30
-                self.health = min(100 if self.game_mode == "normal" else 150 if self.game_mode == "easy" else 75, self.health + heal_amount)
-                print(f"\nYou used a Health Potion and restored {heal_amount} HP!")
-            elif item == "Strength Potion":
-                self.attack += 5
-                print(f"\nYou used a Strength Potion! Attack increased by 5.")
-            elif item == "Iron Sword":
-                self.attack += 10
-                print(f"\nYou equipped an Iron Sword! Attack increased by 10.")
-            elif item == "Steel Sword":
-                self.attack += 15
-                print(f"\nYou equipped a Steel Sword! Attack increased by 15.")
-            elif item == "Diamond Sword":
-                self.attack += 25
-                print(f"\nYou equipped a Diamond Sword! Attack increased by 25.")
-            elif item == "Godly Sword":
-                self.attack += 50
-                print(f"\nYou equipped a Godly Sword! Attack increased by 50.")
-            elif item == "Wooden Axe":
-                self.attack += 8
-                print(f"\nYou equipped a Wooden Axe! Attack increased by 8.")
-            elif item == "Iron Axe":
-                self.attack += 12
-                print(f"\nYou equipped an Iron Axe! Attack increased by 12.")
-            elif item == "Shield":
-                self.defense += 5
-                print(f"\nYou equipped a Shield! Defense increased by 5.")
-        else:
+        if item not in self.inventory:
             print(f"\nYou don't have a {item} in your inventory!")
+            return
+        
+        self.inventory.remove(item)
+        
+        # Define item effects in a dictionary for easier maintenance and extension
+        item_effects = {
+            "Health Potion": {
+                "type": "heal",
+                "amount": 30
+            },
+            "Strength Potion": {
+                "type": "attack_boost",
+                "amount": 5
+            },
+            "Iron Sword": {
+                "type": "attack_boost",
+                "amount": 10
+            },
+            "Steel Sword": {
+                "type": "attack_boost",
+                "amount": 15
+            },
+            "Diamond Sword": {
+                "type": "attack_boost",
+                "amount": 25
+            },
+            "Godly Sword": {
+                "type": "attack_boost",
+                "amount": 50
+            },
+            "Wooden Axe": {
+                "type": "attack_boost",
+                "amount": 8
+            },
+            "Iron Axe": {
+                "type": "attack_boost",
+                "amount": 12
+            },
+            "Shield": {
+                "type": "defense_boost",
+                "amount": 5
+            }
+        }
+        
+        # Get the effect for the item
+        effect = item_effects.get(item)
+        
+        if effect:
+            if effect["type"] == "heal":
+                # Handle health restoration with game mode caps
+                if self.game_mode == "easy":
+                    max_health = 150
+                elif self.game_mode == "hardcore":
+                    max_health = 75
+                else:  # normal mode
+                    max_health = 100
+                
+                heal_amount = effect["amount"]
+                self.health = min(max_health, self.health + heal_amount)
+                print(f"\nYou used a {item} and restored {heal_amount} HP!")
+            elif effect["type"] == "attack_boost":
+                boost_amount = effect["amount"]
+                self.attack += boost_amount
+                print(f"\nYou used a {item}! Attack increased by {boost_amount}.")
+            elif effect["type"] == "defense_boost":
+                boost_amount = effect["amount"]
+                self.defense += boost_amount
+                print(f"\nYou used a {item}! Defense increased by {boost_amount}.")
+        else:
+            print(f"\n{item} has no defined effect!")
     
     def mine(self):
         """Manual mining feature"""
