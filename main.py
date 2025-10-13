@@ -245,19 +245,26 @@ def create_enemy(game_mode="normal", player_level=1):
         enemies = [
             ("Weak Goblin", 20, 6, 1),
             ("Young Orc", 35, 8, 3),
-            ("Baby Dragon", 70, 15, 7)
+            ("Baby Dragon", 70, 15, 7),
+            ("Forest Sprite", 15, 4, 2),
+            ("Cave Rat", 25, 7, 1)
         ]
     elif game_mode == "hardcore":
         enemies = [
             ("Goblin Champion", 40, 12, 4),
             ("Orc Warrior", 70, 18, 8),
-            ("Ancient Dragon", 150, 30, 15)
+            ("Ancient Dragon", 150, 30, 15),
+            ("Demon Lord", 200, 40, 20),
+            ("Shadow Assassin", 60, 25, 5)
         ]
     else:  # normal mode
         enemies = [
             ("Goblin", 30, 8, 2),
             ("Orc", 50, 12, 5),
-            ("Dragon", 100, 20, 10)
+            ("Dragon", 100, 20, 10),
+            ("Skeleton", 40, 10, 3),
+            ("Zombie", 55, 9, 2),
+            ("Troll", 80, 15, 6)
         ]
     
     # Select a random enemy
@@ -294,7 +301,7 @@ def battle(player, enemy):
                 print(f"You gained {exp_gained} experience points!")
                 
                 # Add a random item to inventory upon victory
-                items = ["Health Potion", "Strength Potion", "Iron Sword", "Steel Sword", "Diamond Sword", "Godly Sword", "Wooden Axe", "Iron Axe", "Shield"]
+                items = ["Health Potion", "Strength Potion", "Iron Sword", "Steel Sword", "Diamond Sword", "Godly Sword", "Wooden Axe", "Iron Axe", "Shield", "Magic Staff", "Enchanted Bow", "Leather Armor", "Chainmail Armor"]
                 if random.random() > 0.5:  # 50% chance to get an item
                     item = random.choice(items)
                     player.inventory.append(item)
@@ -346,7 +353,11 @@ def shop(player):
         ("Godly Sword", 1000),
         ("Wooden Axe", 30),
         ("Iron Axe", 150),
-        ("Shield", 150)
+        ("Shield", 150),
+        ("Magic Staff", 300),
+        ("Enchanted Bow", 250),
+        ("Leather Armor", 100),
+        ("Chainmail Armor", 200)
     ]
     
     # Define sell prices for resources
