@@ -42,7 +42,10 @@ def main():
             ui.print_header("MINING")
             print("Digging for resources...")
             if random.random() < 0.7:
-                res = random.choices(list(RESOURCES.keys()), weights=[40, 30, 20, 10])[0]
+                res_list = list(RESOURCES.keys())
+                # Weights for: Stone, Coal, Iron Ore, Gold Ore, Emerald, Diamond, Obsidian, Mithril
+                weights = [40, 25, 15, 10, 5, 3, 1.5, 0.5]
+                res = random.choices(res_list, weights=weights)[0]
                 gc.player.inventory.append(res)
                 print(f"{Colors.GREEN}Success! You found {res}.{Colors.ENDC}")
             else:
