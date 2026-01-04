@@ -19,15 +19,12 @@ Embark on an adventure where every command could be your last. Or not. Depending
 
 ## Features
 
-- Character creation with customizable names
-- Battle system with enemies (Goblins, Orcs, Dragons)
-- Health management system
-- Inventory tracking with items and equipment
-- Leveling system with experience points
-- Mining feature to find resources
-- Shop system to purchase items
-- Multiple actions: explore, rest, attack, run, quit, view stats, save game
-- **Multiple game modes for varied difficulty levels**
+- **Refactored Object-Oriented Design**: Clean, maintainable code structure.
+- **Enhanced UI**: Colored terminal output and clear status displays.
+- Character creation with customizable names.
+- Battle system with scaling enemies.
+- Leveling system with stat progression.
+- Mining and Shop systems for resource management.
 
 ## How to Play
 
@@ -48,9 +45,7 @@ Embark on an adventure where every command could be your last. Or not. Depending
    - `quit`: Exit the game
 6. During battles, choose to `attack`, `run`, or `use item`
 
-## AI Player Mode
 
-You can also watch an AI play the game using `python small_llm_play_game.py`
 
 ## Requirements
 

@@ -1,552 +1,294 @@
-# CLI-Based RPG Game
-
 import random
 import json
 import os
 import time
 import threading
+from typing import Dict, List, Optional
+
+class Colors:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+class Item:
+    def __init__(self, name: str, price: int, item_type: str, bonus: int):
+        self.name = name
+        self.price = price
+        self.item_type = item_type
+        self.bonus = bonus
+
+ITEMS = {
+    "Health Potion": Item("Health Potion", 20, "heal", 30),
+    "Strength Potion": Item("Strength Potion", 50, "attack_boost", 5),
+    "Iron Sword": Item("Iron Sword", 100, "attack_boost", 10),
+    "Steel Sword": Item("Steel Sword", 200, "attack_boost", 15),
+    "Diamond Sword": Item("Diamond Sword", 500, "attack_boost", 25),
+    "Godly Sword": Item("Godly Sword", 1000, "attack_boost", 50),
+    "Wooden Axe": Item("Wooden Axe", 30, "attack_boost", 8),
+    "Iron Axe": Item("Iron Axe", 150, "attack_boost", 12),
+    "Shield": Item("Shield", 150, "defense_boost", 5),
+    "Magic Staff": Item("Magic Staff", 300, "attack_boost", 20),
+    "Enchanted Bow": Item("Enchanted Bow", 250, "attack_boost", 18),
+    "Leather Armor": Item("Leather Armor", 100, "defense_boost", 10),
+    "Chainmail Armor": Item("Chainmail Armor", 200, "defense_boost", 20)
+}
+
+RESOURCES = {
+    "Stone": 2,
+    "Iron Ore": 5,
+    "Gold Ore": 10,
+    "Diamond": 50
+}
 
 class Player:
-    def __init__(self, name, game_mode="normal", health=100, attack=10, defense=5, level=1, experience=0, coins=0):
+    def __init__(self, name: str, game_mode: str = "normal"):
         self.name = name
         self.game_mode = game_mode
-        self.level = level
-        self.experience = experience
-        self.coins = coins
-        
-        # Set stats based on game mode
-        if game_mode == "easy":
-            self.health = health if health is not None else 150
-            self.attack = attack if attack is not None else 15
-            self.defense = defense if defense is not None else 8
-        elif game_mode == "hardcore":
-            self.health = health if health is not None else 75
-            self.attack = attack if attack is not None else 8
-            self.defense = defense if defense is not None else 3
-        else:  # normal mode
-            self.health = health if health is not None else 100
-            self.attack = attack if attack is not None else 10
-            self.defense = defense if defense is not None else 5
-            
-        self.inventory = []
+        self.level = 1
+        self.experience = 0
+        self.coins = 0
+        self.inventory: List[str] = []
         self.auto_mining = False
-        self.mining_thread = None
-    
-    def rest(self):
-        """Rest to regain health"""
-        if self.game_mode == "easy":
-            heal_amount = random.randint(15, 35)
-        elif self.game_mode == "hardcore":
-            print("\nResting is disabled in hardcore mode!")
-            return 0
-        else:  # normal mode
-            heal_amount = random.randint(10, 25)
         
-        self.health = min(100 if self.game_mode == "normal" else 150 if self.game_mode == "easy" else 75, self.health + heal_amount)  # Cap health based on mode
-        return heal_amount
-    
-    def save(self):
-        """Save player data to a JSON file"""
-        player_data = {
-            "name": self.name,
-            "game_mode": self.game_mode,
-            "health": self.health,
-            "attack": self.attack,
-            "defense": self.defense,
-            "inventory": self.inventory,
-            "level": self.level,
-            "experience": self.experience,
-            "coins": self.coins
-        }
-        
-        filename = f"{self.name}_save.json"
-        with open(filename, 'w') as f:
-            json.dump(player_data, f)
-        
-        print(f"\nGame saved to {filename}!")
-    
-    def use_item(self, item):
-        """Use an item from the inventory"""
-        if item not in self.inventory:
-            print(f"\nYou don't have a {item} in your inventory!")
-            return
-        
-        self.inventory.remove(item)
-        
-        # Define item effects in a dictionary for easier maintenance and extension
-        item_effects = {
-            "Health Potion": {
-                "type": "heal",
-                "amount": 30
-            },
-            "Strength Potion": {
-                "type": "attack_boost",
-                "amount": 5
-            },
-            "Iron Sword": {
-                "type": "attack_boost",
-                "amount": 10
-            },
-            "Steel Sword": {
-                "type": "attack_boost",
-                "amount": 15
-            },
-            "Diamond Sword": {
-                "type": "attack_boost",
-                "amount": 25
-            },
-            "Godly Sword": {
-                "type": "attack_boost",
-                "amount": 50
-            },
-            "Wooden Axe": {
-                "type": "attack_boost",
-                "amount": 8
-            },
-            "Iron Axe": {
-                "type": "attack_boost",
-                "amount": 12
-            },
-            "Shield": {
-                "type": "defense_boost",
-                "amount": 5
-            }
-        }
-        
-        # Get the effect for the item
-        effect = item_effects.get(item)
-        
-        if effect:
-            if effect["type"] == "heal":
-                # Handle health restoration with game mode caps
-                if self.game_mode == "easy":
-                    max_health = 150
-                elif self.game_mode == "hardcore":
-                    max_health = 75
-                else:  # normal mode
-                    max_health = 100
-                
-                heal_amount = effect["amount"]
-                self.health = min(max_health, self.health + heal_amount)
-                print(f"\nYou used a {item} and restored {heal_amount} HP!")
-            elif effect["type"] == "attack_boost":
-                boost_amount = effect["amount"]
-                self.attack += boost_amount
-                print(f"\nYou used a {item}! Attack increased by {boost_amount}.")
-            elif effect["type"] == "defense_boost":
-                boost_amount = effect["amount"]
-                self.defense += boost_amount
-                print(f"\nYou used a {item}! Defense increased by {boost_amount}.")
+        if game_mode == "easy":
+            self.max_health = 150
+            self.attack = 15
+            self.defense = 8
+        elif game_mode == "hardcore":
+            self.max_health = 75
+            self.attack = 8
+            self.defense = 3
         else:
-            print(f"\n{item} has no defined effect!")
-    
-    def mine(self):
-        """Manual mining feature"""
-        mining_results = ["Stone", "Iron Ore", "Gold Ore", "Diamond", "Nothing"]
-        weights = [0.4, 0.25, 0.2, 0.1, 0.05]  # Probability weights
-        
-        result = random.choices(mining_results, weights=weights)[0]
-        
-        if result == "Nothing":
-            print("\nYou didn't find anything while mining.")
-        else:
-            self.inventory.append(result)
-            print(f"\nYou mined and found: {result}!")
+            self.max_health = 100
+            self.attack = 10
+            self.defense = 5
             
-            # Special case: if you find a diamond, you might be able to craft a diamond sword
-            if result == "Diamond" and "Wooden Axe" in self.inventory:
-                craft_choice = input("Would you like to craft a Diamond Sword? (y/n): ").lower()
-                if craft_choice == "y":
-                    # Remove the diamond and wooden axe
-                    self.inventory.remove("Diamond")
-                    self.inventory.remove("Wooden Axe")
-                    self.inventory.append("Diamond Sword")
-                    print("You crafted a Diamond Sword!")
-    
-    def auto_mine(self):
-        """Auto mining feature that generates coins"""
-        print("\nAuto mining started. You will gain 10 coins per minute.")
-        print("Type 'stop mining' at any time to stop auto mining.")
-        
-        while self.auto_mining:
-            time.sleep(60)  # Wait for 1 minute
-            if self.auto_mining:  # Check again in case it was stopped during sleep
-                self.coins += 10
-                print(f"\n[Auto Mining] You've gained 10 coins! Total coins: {self.coins}")
-    
-    def start_auto_mining(self):
-        """Start the auto mining thread"""
-        if not self.auto_mining:
-            self.auto_mining = True
-            self.mining_thread = threading.Thread(target=self.auto_mine, daemon=True)
-            self.mining_thread.start()
-            print("\nAuto mining started successfully!")
-        else:
-            print("\nAuto mining is already running!")
-    
-    def stop_auto_mining(self):
-        """Stop the auto mining thread"""
-        if self.auto_mining:
-            self.auto_mining = False
-            print("\nAuto mining stopped.")
-        else:
-            print("\nAuto mining is not currently running!")
-    
-    def gain_experience(self, exp):
-        """Gain experience and level up if enough experience is gained"""
-        self.experience += exp
-        exp_needed = self.level * 100  # Experience needed to level up
-        
-        if self.experience >= exp_needed:
-            self.level_up()
-    
+        self.health = self.max_health
+
     def level_up(self):
-        """Level up the player, increasing stats"""
         self.level += 1
-        self.experience = 0  # Reset experience after level up
-        
-        # Increase stats
+        self.experience = 0
         self.attack += 5
         self.defense += 3
-        self.health += 20
-        
-        print(f"\nCongratulations! You've reached level {self.level}!")
-        print("Your stats have increased!")
+        self.max_health += 20
+        self.health = self.max_health
+        return True
 
+    def gain_experience(self, exp: int):
+        self.experience += exp
+        if self.experience >= self.level * 100:
+            return self.level_up()
+        return False
 
 class Enemy:
-    def __init__(self, name, health, attack, defense=0, level=1):
+    def __init__(self, name: str, health: int, attack: int, defense: int, level: int):
         self.name = name
         self.health = health
         self.attack = attack
         self.defense = defense
         self.level = level
 
+class GameUI:
+    @staticmethod
+    def clear():
+        os.system('cls' if os.name == 'nt' else 'clear')
 
-def display_stats(player):
-    print(f"\n{player.name}'s Stats:")
-    print(f"Level: {player.level}")
-    print(f"Experience: {player.experience}")
-    print(f"Health: {player.health}")
-    print(f"Attack: {player.attack}")
-    print(f"Defense: {player.defense}")
-    print(f"Coins: {player.coins}")
-    print(f"Inventory: {', '.join(player.inventory) if player.inventory else 'Empty'}")
-    print(f"Game Mode: {player.game_mode.capitalize()}")
-    if player.auto_mining:
-        print("Auto Mining: Active")
-    else:
-        print("Auto Mining: Inactive")
+    @staticmethod
+    def print_header(text: str):
+        print(f"\n{Colors.HEADER}{'='*10} {text} {'='*10}{Colors.ENDC}")
 
+    @staticmethod
+    def print_status(player: Player):
+        print(f"\n{Colors.CYAN}{Colors.BOLD}{player.name}{Colors.ENDC} | "
+              f"{Colors.GREEN}HP: {player.health}/{player.max_health}{Colors.ENDC} | "
+              f"{Colors.WARNING}Level: {player.level}{Colors.ENDC} | "
+              f"{Colors.BLUE}Coins: {player.coins}{Colors.ENDC}")
 
-def create_enemy(game_mode="normal", player_level=1):
-    # Adjust enemy difficulty based on game mode and player level
-    if game_mode == "easy":
-        enemies = [
-            ("Weak Goblin", 20, 6, 1),
-            ("Young Orc", 35, 8, 3),
-            ("Baby Dragon", 70, 15, 7),
-            ("Forest Sprite", 15, 4, 2),
-            ("Cave Rat", 25, 7, 1)
-        ]
-    elif game_mode == "hardcore":
-        enemies = [
-            ("Goblin Champion", 40, 12, 4),
-            ("Orc Warrior", 70, 18, 8),
-            ("Ancient Dragon", 150, 30, 15),
-            ("Demon Lord", 200, 40, 20),
-            ("Shadow Assassin", 60, 25, 5)
-        ]
-    else:  # normal mode
-        enemies = [
-            ("Goblin", 30, 8, 2),
-            ("Orc", 50, 12, 5),
-            ("Dragon", 100, 20, 10),
-            ("Skeleton", 40, 10, 3),
-            ("Zombie", 55, 9, 2),
-            ("Troll", 80, 15, 6)
-        ]
-    
-    # Select a random enemy
-    enemy_data = random.choice(enemies)
-    
-    # Scale enemy stats based on player level
-    scaled_health = enemy_data[1] + (player_level - 1) * 10
-    scaled_attack = enemy_data[2] + (player_level - 1) * 3
-    scaled_defense = enemy_data[3] + (player_level - 1) * 1
-    
-    return Enemy(enemy_data[0], scaled_health, scaled_attack, scaled_defense, player_level)
+class GameController:
+    def __init__(self):
+        self.player: Optional[Player] = None
+        self.ui = GameUI()
 
-
-def battle(player, enemy):
-    print(f"\nA wild {enemy.name} appears!")
-    
-    while player.health > 0 and enemy.health > 0:
-        print(f"\n{player.name}: {player.health} HP")
-        print(f"{enemy.name}: {enemy.health} HP")
+    def create_enemy(self):
+        mode = self.player.game_mode
+        lvl = self.player.level
         
-        action = input("\nWhat will you do? (attack/run/use item): ").lower()
-        
-        if action == "attack":
-            damage = max(0, player.attack - enemy.defense + random.randint(-5, 5))
-            enemy.health -= damage
-            print(f"\nYou hit the {enemy.name} for {damage} damage!")
-            
-            if enemy.health <= 0:
-                print(f"\nYou defeated the {enemy.name}!")
-                
-                # Gain experience based on enemy level
-                exp_gained = enemy.level * 50
-                player.gain_experience(exp_gained)
-                print(f"You gained {exp_gained} experience points!")
-                
-                # Add a random item to inventory upon victory
-                items = ["Health Potion", "Strength Potion", "Iron Sword", "Steel Sword", "Diamond Sword", "Godly Sword", "Wooden Axe", "Iron Axe", "Shield", "Magic Staff", "Enchanted Bow", "Leather Armor", "Chainmail Armor"]
-                if random.random() > 0.5:  # 50% chance to get an item
-                    item = random.choice(items)
-                    player.inventory.append(item)
-                    print(f"You found a {item}!")
-                return True
-            
-            enemy_damage = max(0, enemy.attack - player.defense + random.randint(-3, 3))
-            player.health -= enemy_damage
-            print(f"The {enemy.name} hits you for {enemy_damage} damage!")
-            
-            if player.health <= 0:
-                print("\nYou have been defeated!")
-                return False
-        
-        elif action == "run":
-            print("\nYou run away safely.")
-            return None
-        
-        elif action == "use item":
-            if not player.inventory:
-                print("\nYour inventory is empty!")
-            else:
-                print("\nInventory:")
-                for i, item in enumerate(player.inventory):
-                    print(f"{i+1}. {item}")
-                
-                try:
-                    choice = int(input("\nWhich item would you like to use? (Enter number): "))
-                    if 1 <= choice <= len(player.inventory):
-                        item_to_use = player.inventory[choice-1]
-                        player.use_item(item_to_use)
-                    else:
-                        print("\nInvalid choice!")
-                except ValueError:
-                    print("\nInvalid input!")
-        
+        if mode == "easy":
+            enemies = [("Slime", 20, 5, 1), ("Bat", 15, 6, 0), ("Weak Goblin", 30, 8, 2)]
+        elif mode == "hardcore":
+            enemies = [("Demon Lord", 200, 40, 20), ("Death Knight", 150, 35, 15), ("Void Stalker", 120, 45, 10)]
         else:
-            print("\nInvalid action. Please choose 'attack', 'run', or 'use item'.")
+            enemies = [("Goblin", 40, 12, 5), ("Orc", 60, 18, 8), ("Skeleton", 50, 15, 6)]
+            
+        name, h, a, d = random.choice(enemies)
+        return Enemy(name, h + (lvl*10), a + (lvl*3), d + lvl, lvl)
 
-
-def shop(player):
-    """Visit the shop to buy or sell items"""
-    items_for_sale = [
-        ("Health Potion", 20),
-        ("Strength Potion", 50),
-        ("Iron Sword", 100),
-        ("Steel Sword", 200),
-        ("Diamond Sword", 500),
-        ("Godly Sword", 1000),
-        ("Wooden Axe", 30),
-        ("Iron Axe", 150),
-        ("Shield", 150),
-        ("Magic Staff", 300),
-        ("Enchanted Bow", 250),
-        ("Leather Armor", 100),
-        ("Chainmail Armor", 200)
-    ]
-    
-    # Define sell prices for resources
-    sell_prices = {
-        "Stone": 2,
-        "Iron Ore": 5,
-        "Gold Ore": 10,
-        "Diamond": 50
-    }
-    
-    print(f"\nWelcome to the shop! You have {player.coins} coins.")
-    print("1. Buy items")
-    print("2. Sell resources")
-    
-    try:
-        action_choice = int(input("\nWhat would you like to do? (Enter 1 to buy, 2 to sell, 0 to exit): "))
+    def battle(self):
+        enemy = self.create_enemy()
+        self.ui.print_header(f"BATTLE: vs {enemy.name}")
         
-        if action_choice == 0:
+        while enemy.health > 0 and self.player.health > 0:
+            print(f"\nEnemy HP: {enemy.health} | Your HP: {self.player.health}")
+            action = input("Actions: [A]ttack, [R]un, [I]tem: ").lower()
+            
+            if action == 'a':
+                dmg = max(1, self.player.attack - enemy.defense + random.randint(-2, 5))
+                enemy.health -= dmg
+                print(f"{Colors.GREEN}You hit for {dmg}!{Colors.ENDC}")
+                
+                if enemy.health > 0:
+                    e_dmg = max(1, enemy.attack - self.player.defense + random.randint(-2, 2))
+                    self.player.health -= e_dmg
+                    print(f"{Colors.FAIL}{enemy.name} hit you for {e_dmg}!{Colors.ENDC}")
+            elif action == 'r':
+                if random.random() > 0.3:
+                    print("Escaped!")
+                    return
+                print("Failed to escape!")
+            elif action == 'i':
+                self.use_item_menu()
+
+        if self.player.health <= 0:
+            print(f"{Colors.FAIL}YOU DIED!{Colors.ENDC}")
+            return False
+        
+        print(f"{Colors.GREEN}Victory! Gained {enemy.level * 50} EXP.{Colors.ENDC}")
+        if self.player.gain_experience(enemy.level * 50):
+            print(f"{Colors.WARNING}LEVEL UP!{Colors.ENDC}")
+        self.player.coins += enemy.level * 20
+        return True
+
+    def use_item_menu(self):
+        if not self.player.inventory:
+            print("Inventory empty!")
             return
+        for i, item in enumerate(self.player.inventory):
+            print(f"{i+1}. {item}")
+        try:
+            idx = int(input("Select item #: ")) - 1
+            item_name = self.player.inventory.pop(idx)
+            item = ITEMS.get(item_name)
+            if item.item_type == "heal":
+                self.player.health = min(self.player.max_health, self.player.health + item.bonus)
+            elif item.item_type == "attack_boost":
+                self.player.attack += item.bonus
+            elif item.item_type == "defense_boost":
+                self.player.defense += item.bonus
+            print(f"Used {item_name}!")
+        except:
+            print("Invalid selection.")
+
+    def shop(self):
+        self.ui.print_header("THE SHOP")
+        print(f"Your Coins: {self.player.coins}")
+        shop_items = list(ITEMS.keys())[:8]
+        for i, name in enumerate(shop_items):
+            print(f"{i+1}. {name} ({ITEMS[name].price} coins)")
+        print("9. Sell Resources")
         
-        if action_choice == 1:
-            # Display items and their prices
-            for i, (item, price) in enumerate(items_for_sale):
-                print(f"{i+1}. {item} - {price} coins")
+        try:
+            choice = int(input("Choice (0 to exit): "))
+            if choice == 0: return
+            if choice == 9: self.sell_resources(); return
             
-            # Get player's choice
-            choice = int(input("\nWhat would you like to buy? (Enter number): "))
-            
-            if 1 <= choice <= len(items_for_sale):
-                item, price = items_for_sale[choice-1]
-                
-                # Check if player has enough coins
-                if player.coins >= price:
-                    player.inventory.append(item)
-                    player.coins -= price
-                    print(f"\nYou bought a {item} for {price} coins!")
-                    print(f"Remaining coins: {player.coins}")
-                else:
-                    print("\nYou don't have enough coins!")
+            item_name = shop_items[choice-1]
+            item = ITEMS[item_name]
+            if self.player.coins >= item.price:
+                self.player.coins -= item.price
+                self.player.inventory.append(item_name)
+                print(f"Bought {item_name}!")
             else:
-                print("\nInvalid choice!")
-        
-        elif action_choice == 2:
-            # Check if player has any resources to sell
-            resources_to_sell = [item for item in player.inventory if item in sell_prices]
-            
-            if not resources_to_sell:
-                print("\nYou don't have any sellable resources in your inventory!")
+                print("Not enough coins!")
+        except:
+            print("Invalid input.")
+
+    def sell_resources(self):
+        resources = [r for r in self.player.inventory if r in RESOURCES]
+        if not resources:
+            print("No resources to sell!")
+            return
+        for i, r in enumerate(resources):
+            print(f"{i+1}. {r} ({RESOURCES[r]} coins)")
+        try:
+            idx = int(input("Select to sell: ")) - 1
+            r_name = resources[idx]
+            self.player.inventory.remove(r_name)
+            self.player.coins += RESOURCES[r_name]
+            print(f"Sold {r_name}!")
+        except:
+            print("Invalid input.")
+
+    def save_game(self):
+        data = {
+            "name": self.player.name,
+            "mode": self.player.game_mode,
+            "lvl": self.player.level,
+            "exp": self.player.experience,
+            "coins": self.player.coins,
+            "inv": self.player.inventory,
+            "hp": self.player.health,
+            "atk": self.player.attack,
+            "def": self.player.defense
+        }
+        with open(f"{self.player.name}_save.json", 'w') as f:
+            json.dump(data, f)
+        print("Game Saved!")
+
+    def load_game(self):
+        name = input("Enter name: ")
+        if os.path.exists(f"{name}_save.json"):
+            with open(f"{name}_save.json", 'r') as f:
+                d = json.load(f)
+            self.player = Player(d['name'], d['mode'])
+            self.player.level = d['lvl']
+            self.player.experience = d['exp']
+            self.player.coins = d['coins']
+            self.player.inventory = d['inv']
+            self.player.health = d['hp']
+            self.player.attack = d['atk']
+            self.player.defense = d['def']
+            return True
+        return False
+
+    def run(self):
+        self.ui.clear()
+        print(f"{Colors.BOLD}{Colors.BLUE}=== RPG REFACTORED ==={Colors.ENDC}")
+        if input("Load game? (y/n): ").lower() == 'y':
+            if not self.load_game():
+                print("Load failed.")
                 return
-            
-            print("\nYour sellable resources:")
-            for i, resource in enumerate(resources_to_sell):
-                print(f"{i+1}. {resource} - {sell_prices[resource]} coins")
-            
-            # Get player's choice
-            choice = int(input("\nWhat would you like to sell? (Enter number): "))
-            
-            if 1 <= choice <= len(resources_to_sell):
-                resource = resources_to_sell[choice-1]
-                player.inventory.remove(resource)
-                player.coins += sell_prices[resource]
-                print(f"\nYou sold a {resource} for {sell_prices[resource]} coins!")
-                print(f"Total coins: {player.coins}")
-            else:
-                print("\nInvalid choice!")
-        
         else:
-            print("\nInvalid action choice!")
-    
-    except ValueError:
-        print("\nInvalid input!")
+            name = input("Character Name: ")
+            mode = input("Mode (easy/normal/hardcore): ").lower()
+            self.player = Player(name, mode)
 
-
-def select_game_mode():
-    """Allow player to select game mode"""
-    print("\nSelect Game Mode:")
-    print("1. Normal (balanced difficulty)")
-    print("2. Easy (more health, stronger attacks, weaker enemies, better healing)")
-    print("3. Hardcore (less health, weaker attacks, stronger enemies, no resting)")
-    
-    while True:
-        choice = input("\nEnter your choice (1/2/3): ").strip()
-        
-        if choice == "1":
-            return "normal"
-        elif choice == "2":
-            return "easy"
-        elif choice == "3":
-            return "hardcore"
-        else:
-            print("Invalid choice. Please enter 1, 2, or 3.")
-
-
-def load_game():
-    """Load a saved game"""
-    name = input("\nEnter your character's name to load: ").strip()
-    filename = f"{name}_save.json"
-    
-    if os.path.exists(filename):
-        with open(filename, 'r') as f:
-            player_data = json.load(f)
-        
-        player = Player(
-            player_data["name"],
-            player_data["game_mode"],
-            player_data["health"],
-            player_data["attack"],
-            player_data["defense"],
-            player_data.get("level", 1),  # Default to level 1 if not present
-            player_data.get("experience", 0),  # Default to 0 experience if not present
-            player_data.get("coins", 0)  # Default to 0 coins if not present
-        )
-        player.inventory = player_data["inventory"]
-        
-        print(f"\nGame loaded successfully for {name}!")
-        return player
-    else:
-        print(f"\nNo saved game found for {name}!")
-        return None
-
-
-def main():
-    print("Welcome to the CLI-Based RPG Game!")
-    
-    # Ask if player wants to load a game
-    load_choice = input("\nDo you want to load a saved game? (y/n): ").lower().strip()
-    
-    if load_choice == "y":
-        player = load_game()
-        if player is None:
-            # If loading failed, create a new character
-            game_mode = select_game_mode()
-            name = input("\nEnter your character's name: ").strip()
-            player = Player(name, game_mode)
-    else:
-        # Create a new character
-        game_mode = select_game_mode()
-        name = input("\nEnter your character's name: ").strip()
-        player = Player(name, game_mode)
-    
-    print(f"\nWelcome, {player.name}! You are playing in {player.game_mode.capitalize()} mode.")
-    
-    # Main game loop
-    while player.health > 0:
-        print("\nWhat would you like to do?")
-        print("1. Explore")
-        print("2. Rest")
-        print("3. View Stats")
-        print("4. Shop")
-        print("5. Mine")
-        print("6. Start Auto Mining")
-        print("7. Stop Auto Mining")
-        print("8. Save Game")
-        print("9. Quit")
-        
-        choice = input("> ").strip()
-        
-        if choice == "1":
-            enemy = create_enemy(player.game_mode, player.level)
-            result = battle(player, enemy)
-            if result is False:  # Player was defeated
+        while self.player.health > 0:
+            self.ui.print_status(self.player)
+            print("1. Explore  2. Shop  3. Mine  4. Save  5. Quit")
+            choice = input("> ")
+            
+            if choice == '1':
+                if not self.battle(): break
+            elif choice == '2':
+                self.shop()
+            elif choice == '3':
+                res = random.choices(list(RESOURCES.keys()) + ["Nothing"], weights=[0.4, 0.3, 0.2, 0.1, 0.5])[0]
+                if res != "Nothing":
+                    self.player.inventory.append(res)
+                    print(f"Mined {res}!")
+                else: print("Found nothing.")
+            elif choice == '4':
+                self.save_game()
+            elif choice == '5':
                 break
-        elif choice == "2":
-            heal_amount = player.rest()
-            if heal_amount > 0:
-                print(f"\nYou rested and recovered {heal_amount} HP!")
-        elif choice == "3":
-            display_stats(player)
-        elif choice == "4":
-            shop(player)
-        elif choice == "5":
-            player.mine()
-        elif choice == "6":
-            player.start_auto_mining()
-        elif choice == "7":
-            player.stop_auto_mining()
-        elif choice == "8":
-            player.save()
-        elif choice == "9":
-            if player.auto_mining:
-                player.stop_auto_mining()
-            print("\nThanks for playing!")
-            break
-        else:
-            print("\nInvalid choice. Please enter a number between 1 and 9.")
-    
-    if player.health <= 0:
-        print("\nGame Over! Your character has died.")
-        print("Thanks for playing!")
+        
+        print("Game Over.")
 
 if __name__ == "__main__":
-    main()
+    GameController().run()
