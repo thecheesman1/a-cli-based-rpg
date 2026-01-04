@@ -21,6 +21,7 @@ class Item:
 
 ITEMS = {
     "Health Potion": Item("Health Potion", 20, "heal", 30),
+    "Greater Health Potion": Item("Greater Health Potion", 50, "heal", 75),
     "Strength Potion": Item("Strength Potion", 50, "attack_boost", 5),
     "Iron Sword": Item("Iron Sword", 100, "attack_boost", 10),
     "Steel Sword": Item("Steel Sword", 200, "attack_boost", 15),
@@ -32,14 +33,21 @@ ITEMS = {
     "Magic Staff": Item("Magic Staff", 300, "attack_boost", 20),
     "Enchanted Bow": Item("Enchanted Bow", 250, "attack_boost", 18),
     "Leather Armor": Item("Leather Armor", 100, "defense_boost", 10),
-    "Chainmail Armor": Item("Chainmail Armor", 200, "defense_boost", 20)
+    "Chainmail Armor": Item("Chainmail Armor", 200, "defense_boost", 20),
+    "Steel Armor": Item("Steel Armor", 400, "defense_boost", 35),
+    "Diamond Armor": Item("Diamond Armor", 800, "defense_boost", 55),
+    "Godly Armor": Item("Godly Armor", 2000, "defense_boost", 100)
 }
 
 RESOURCES = {
     "Stone": 2,
+    "Coal": 4,
     "Iron Ore": 5,
     "Gold Ore": 10,
-    "Diamond": 50
+    "Emerald": 25,
+    "Diamond": 50,
+    "Obsidian": 75,
+    "Mithril": 150
 }
 
 class Player:

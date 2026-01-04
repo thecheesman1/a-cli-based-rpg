@@ -1,7 +1,7 @@
 import random
 import json
 import os
-from typing import Optional
+from typing import Optional, List
 from models import Player, Enemy, ITEMS, RESOURCES, Colors
 from ui import GameUI
 
@@ -72,14 +72,17 @@ class GameController:
             print("Your inventory is empty!")
             return
         
-        for i, item in enumerate(self.player.inventory):
-            print(f"{i+1}. {item}")
+        unique_items = sorted(list(set(self.player.inventory)))
+        for i, item in enumerate(unique_items):
+            count = self.player.inventory.count(item)
+            print(f"{i+1}. {item} (x{count})")
         
         try:
             choice = input("Select item # (or 'c' to cancel): ")
             if choice.lower() == 'c': return
             idx = int(choice) - 1
-            item_name = self.player.inventory.pop(idx)
+            item_name = unique_items[idx]
+            self.player.inventory.remove(item_name)
             item = ITEMS.get(item_name)
             
             if item.item_type == "heal":
@@ -94,9 +97,9 @@ class GameController:
 
     def shop(self):
         self.ui.print_header("VILLAGE SHOP")
-        shop_items = list(ITEMS.keys())[:10]
+        shop_items = list(ITEMS.keys())
         for i, name in enumerate(shop_items):
-            print(f"{i+1}. {name:15} | {ITEMS[name].price:>4} coins")
+            print(f"{i+1}. {name:25} | {ITEMS[name].price:>4} coins")
         print("S. Sell Resources")
         
         choice = input("Choice (0 to exit): ").upper()
@@ -107,28 +110,64 @@ class GameController:
             idx = int(choice) - 1
             item_name = shop_items[idx]
             item = ITEMS[item_name]
-            if self.player.coins >= item.price:
-                self.player.coins -= item.price
-                self.player.inventory.append(item_name)
-                print(f"Purchased {item_name}!")
+            
+            qty_input = input(f"How many {item_name} do you want to buy? (default 1): ")
+            qty = int(qty_input) if qty_input.strip() else 1
+            if qty <= 0: return
+            
+            total_cost = item.price * qty
+            if self.player.coins >= total_cost:
+                self.player.coins -= total_cost
+                for _ in range(qty):
+                    self.player.inventory.append(item_name)
+                print(f"Purchased {qty}x {item_name}!")
             else:
                 print("Insufficient coins!")
         except:
             print("Invalid input.")
 
     def sell_resources(self):
-        resources = [r for r in self.player.inventory if r in RESOURCES]
-        if not resources:
+        resource_names = sorted(list(RESOURCES.keys()))
+        player_resources = [r for r in self.player.inventory if r in RESOURCES]
+        
+        if not player_resources:
             print("No resources to sell!")
             return
-        for i, r in enumerate(resources):
-            print(f"{i+1}. {r:10} | {RESOURCES[r]:>3} coins")
+            
+        self.ui.print_header("SELL RESOURCES")
+        counts = {r: self.player.inventory.count(r) for r in resource_names if self.player.inventory.count(r) > 0}
+        active_resources = sorted(list(counts.keys()))
+        
+        for i, r in enumerate(active_resources):
+            print(f"{i+1}. {r:15} | Price: {RESOURCES[r]:>3} | Owned: {counts[r]}")
+        print("A. Sell ALL resources")
+        
+        choice = input("Select resource # or 'A': ").upper()
+        
+        if choice == 'A':
+            total_gain = 0
+            for r in player_resources:
+                total_gain += RESOURCES[r]
+                self.player.inventory.remove(r)
+            self.player.coins += total_gain
+            print(f"Sold all resources for {total_gain} coins!")
+            return
+
         try:
-            idx = int(input("Select resource: ")) - 1
-            r_name = resources[idx]
-            self.player.inventory.remove(r_name)
-            self.player.coins += RESOURCES[r_name]
-            print(f"Sold {r_name} for {RESOURCES[r_name]} coins.")
+            idx = int(choice) - 1
+            r_name = active_resources[idx]
+            
+            qty_input = input(f"How many {r_name} to sell? (max {counts[r_name]}): ")
+            qty = int(qty_input) if qty_input.strip() else 1
+            qty = min(qty, counts[r_name])
+            
+            if qty <= 0: return
+            
+            gain = RESOURCES[r_name] * qty
+            for _ in range(qty):
+                self.player.inventory.remove(r_name)
+            self.player.coins += gain
+            print(f"Sold {qty}x {r_name} for {gain} coins.")
         except:
             print("Invalid input.")
 
